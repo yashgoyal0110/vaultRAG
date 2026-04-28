@@ -1,0 +1,35 @@
+name = "vaultrag-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+# JWT secret - we'll set this via `wrangler secret put JWT_SECRET` later
+# Other env vars
+[vars]
+AI_GATEWAY_ACCOUNT_ID = "a1147eb3fca7806d17ab221863fd7758"
+AI_GATEWAY_NAME = "vaultrag-gateway"
+
+# D1 Database - paste from `wrangler d1 create` output
+[[d1_databases]]
+binding = "DB"
+database_name = "vaultrag-db"
+database_id = "1d04161f-45bc-4f78-b006-192e8e54cade"
+
+# R2 Bucket
+[[r2_buckets]]
+binding = "DOCS"
+bucket_name = "vaultrag-docs"
+
+# Vectorize
+[[vectorize]]
+binding = "VECTORS"
+index_name = "vaultrag-vectors"
+
+# KV for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "8b36d34d6ac540648354e4762e6ecba3"
+
+# Workers AI binding
+[ai]
+binding = "AI"
