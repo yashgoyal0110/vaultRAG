@@ -6,9 +6,9 @@ Upload your PDFs. Ask questions. Get answers grounded in your documents with ver
 
 | Resource           | Link                                                                 |
 |--------------------|----------------------------------------------------------------------|
-| 🌐 Live Demo        | https://vaultrag-frontend.pages.dev                                 |
-| 🎥 2-min Walkthrough | https://www.loom.com/share/9d307bc4f47040668cc92c50b9711800        |
-| 📦 GitHub Code      | https://github.com/yashgoyal0110/vaultRAG                           |
+| Live Demo        | https://vaultrag-frontend.pages.dev                                 |
+| 2-min Walkthrough | https://www.loom.com/share/9d307bc4f47040668cc92c50b9711800        |
+| GitHub      | https://github.com/yashgoyal0110/vaultRAG                           |
 
 ---
 
