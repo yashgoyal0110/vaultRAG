@@ -3,6 +3,7 @@ import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import type { UploadPhase } from '../lib/api';
 import type { Document } from '../lib/types';
+import { DocIcon, UploadIcon, TrashIcon, AlertIcon } from '../components/icons';
 
 type UploadProgress = {
   filename: string;
@@ -95,7 +96,14 @@ export function DocumentsPage() {
   return (
     <div>
       <div className="page-header">
-        <h2>Documents</h2>
+        <div>
+          <h2>Documents</h2>
+          <div className="page-sub">
+            {docs.length > 0
+              ? `${docs.length} document${docs.length === 1 ? '' : 's'} in this workspace`
+              : 'Upload PDFs to make them searchable'}
+          </div>
+        </div>
         <div>
           <input
             ref={fileInputRef}
@@ -106,28 +114,25 @@ export function DocumentsPage() {
           />
           <button
             className="btn-primary"
-            style={{ width: 'auto', padding: '9px 18px' }}
+            style={{ width: 'auto' }}
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
           >
             {uploading ? (
-              <>
-                <span className="spinner" style={{ marginRight: 8, verticalAlign: 'middle' }} />
-                Processing…
-              </>
+              <><span className="spinner" /> Processing…</>
             ) : (
-              'Upload PDF'
+              <><UploadIcon /> Upload PDF</>
             )}
           </button>
         </div>
       </div>
 
-      {error && <div className="error-msg">{error}</div>}
+      {error && <div className="error-msg"><AlertIcon /> <span>{error}</span></div>}
 
       {progress && (
         <div className="upload-progress-card">
           <div className="upload-progress-head">
-            <span className="filename">{progress.filename}</span>
+            <span className="filename"><DocIcon /> {progress.filename}</span>
             <span className="status-pill processing">
               {progress.phase === 'uploading' ? `Uploading ${progress.percent}%` : 'Ingesting'}
             </span>
@@ -150,34 +155,35 @@ export function DocumentsPage() {
         <div className="empty-state">Loading documents…</div>
       ) : docs.length === 0 ? (
         <div className="empty-state">
-          <p>No documents yet</p>
+          <div className="empty-icon"><DocIcon /></div>
+          <p className="title">No documents yet</p>
           <p style={{ fontSize: 13, marginTop: 6 }}>
-            Upload a PDF to start asking questions
+            Upload a PDF to start asking questions grounded in your own content.
           </p>
         </div>
       ) : (
         <div className="doc-grid">
           {docs.map(doc => (
             <div key={doc.id} className="doc-card">
-              <div>
+              <div className="doc-icon"><DocIcon /></div>
+              <div style={{ minWidth: 0 }}>
                 <div className="filename">{doc.filename}</div>
                 <div className="meta">
-                  {formatBytes(doc.size_bytes)}
-                  {doc.page_count != null && ` • ${doc.page_count} pages`}
-                  {doc.chunk_count > 0 && ` • ${doc.chunk_count} chunks`}
-                  {' • '}
-                  {formatDate(doc.created_at)}
+                  <span>{formatBytes(doc.size_bytes)}</span>
+                  {doc.page_count != null && <><span className="sep">·</span><span>{doc.page_count} pages</span></>}
+                  {doc.chunk_count > 0 && <><span className="sep">·</span><span>{doc.chunk_count} chunks</span></>}
+                  <span className="sep">·</span><span>{formatDate(doc.created_at)}</span>
                 </div>
                 {doc.error_message && (
-                  <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 4 }}>
+                  <div style={{ color: 'var(--danger)', fontSize: 12, marginTop: 5 }}>
                     {doc.error_message}
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div className="doc-actions">
                 <span className={`status-pill ${doc.status}`}>{doc.status}</span>
-                <button className="btn-danger" onClick={() => handleDelete(doc.id)}>
-                  Delete
+                <button className="btn-danger" onClick={() => handleDelete(doc.id)} title="Delete document">
+                  <TrashIcon />
                 </button>
               </div>
             </div>

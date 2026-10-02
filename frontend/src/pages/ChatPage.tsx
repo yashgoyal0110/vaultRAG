@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
 import type { Chat, Message } from '../lib/types';
+import { PlusIcon, SparkIcon, AlertIcon } from '../components/icons';
 
 export function ChatPage() {
   const { token } = useAuth();
@@ -129,33 +130,27 @@ export function ChatPage() {
   }
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 24, height: 'calc(100vh - 48px)' }}>
+    <div className="chat-layout">
       {/* Chat list */}
-      <div style={{ borderRight: '1px solid var(--border-subtle)', paddingRight: 16, overflowY: 'auto' }}>
-        <button
-          onClick={handleNewChat}
-          className="btn-secondary"
-          style={{ width: '100%', marginBottom: 12 }}
-        >
-          + New chat
+      <div className="chat-list">
+        <button onClick={handleNewChat} className="btn-secondary" style={{ width: '100%', marginBottom: 14 }}>
+          <PlusIcon /> New chat
         </button>
         <div className="nav-section-title" style={{ padding: 0, marginBottom: 8 }}>Recent</div>
         {chats.length === 0 ? (
-          <div className="dim" style={{ fontSize: 12 }}>No chats yet</div>
+          <div className="dim" style={{ fontSize: 12, padding: '0 11px' }}>No chats yet</div>
         ) : (
           chats.map(c => (
             <div
               key={c.id}
               onClick={() => setActiveChatId(c.id)}
-              className={`nav-link ${activeChatId === c.id ? 'active' : ''}`}
-              style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              className={`chat-item ${activeChatId === c.id ? 'active' : ''}`}
             >
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                {c.title}
-              </span>
+              <span className="chat-title">{c.title}</span>
               <button
+                className="chat-x"
                 onClick={(e) => { e.stopPropagation(); handleDeleteChat(c.id); }}
-                style={{ color: 'var(--text-dim)', fontSize: 11, padding: '0 4px' }}
+                title="Delete conversation"
               >
                 ×
               </button>
@@ -166,12 +161,13 @@ export function ChatPage() {
 
       {/* Active chat */}
       <div className="chat-container">
-        {error && <div className="error-msg">{error}</div>}
+        {error && <div className="error-msg"><AlertIcon /> <span>{error}</span></div>}
 
         <div className="chat-messages">
-          {messages.length === 0 ? (
+          {messages.length === 0 && !sending ? (
             <div className="chat-empty">
               <div>
+                <div className="empty-icon"><SparkIcon /></div>
                 <h3>Ask anything about your documents</h3>
                 <p>Answers are grounded in your uploaded PDFs and never leave Cloudflare's network.</p>
               </div>
@@ -179,31 +175,41 @@ export function ChatPage() {
           ) : (
             messages.map(m => (
               <div key={m.id} className={`message ${m.role}`}>
-                <div className="role">{m.role === 'user' ? 'You' : 'VaultRAG'}</div>
-                <div className="content">{m.content}</div>
-                {m.citations.length > 0 && (
-                  <div className="citations">
-                    <div className="citations-header">Sources ({m.citations.length})</div>
-                    {m.citations.map(cit => (
-                      <div key={cit.chunkId} className="citation">
-                        <div className="citation-source">
-                          [{cit.index}] {cit.filename}
-                          <span className="dim" style={{ marginLeft: 8, fontSize: 11 }}>
-                            chunk {cit.chunkIndex} • {(cit.score * 100).toFixed(0)}% match
-                          </span>
+                <div className="msg-avatar">{m.role === 'user' ? 'You' : <SparkIcon className="icon" />}</div>
+                <div className="msg-body">
+                  <div className="role">{m.role === 'user' ? 'You' : 'VaultRAG'}</div>
+                  <div className="content">{m.content}</div>
+                  {m.citations.length > 0 && (
+                    <div className="citations">
+                      <div className="citations-header">Sources · {m.citations.length}</div>
+                      {m.citations.map(cit => (
+                        <div key={cit.chunkId} className="citation">
+                          <div className="citation-source">
+                            <span className="cite-num">{cit.index}</span>
+                            {cit.filename}
+                            <span className="dim" style={{ fontSize: 11 }}>
+                              chunk {cit.chunkIndex} · {(cit.score * 100).toFixed(0)}% match
+                            </span>
+                          </div>
+                          <div className="preview">{cit.preview}</div>
                         </div>
-                        <div>{cit.preview}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             ))
           )}
           {sending && (
-            <div className="message">
-              <div className="role">VaultRAG</div>
-              <div className="content"><span className="spinner" /> <span style={{ marginLeft: 8 }} className="muted">Searching documents and thinking…</span></div>
+            <div className="message assistant">
+              <div className="msg-avatar"><SparkIcon className="icon" /></div>
+              <div className="msg-body">
+                <div className="role">VaultRAG</div>
+                <div className="content" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span className="typing"><span /><span /><span /></span>
+                  <span className="muted">Searching documents and thinking…</span>
+                </div>
+              </div>
             </div>
           )}
           <div ref={messagesEndRef} />
@@ -214,10 +220,10 @@ export function ChatPage() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question about your documents… (Enter to send, Shift+Enter for newline)"
+            placeholder="Ask a question about your documents…  (Enter to send, Shift+Enter for newline)"
             disabled={sending}
           />
-          <button className="btn-primary" style={{ width: 'auto', padding: '0 18px' }} onClick={handleSend} disabled={sending || !input.trim()}>
+          <button className="btn-primary" onClick={handleSend} disabled={sending || !input.trim()}>
             Send
           </button>
         </div>
