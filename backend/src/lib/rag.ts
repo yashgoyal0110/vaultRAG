@@ -9,6 +9,18 @@ export type RetrievedChunk = {
   score: number;
 };
 
+/**
+ * Why a retrieval came back empty. The three empty cases need different answers:
+ * a question genuinely not covered by the documents is not the same failure as
+ * documents that aren't searchable yet.
+ */
+export type RetrievalStatus = 'ok' | 'no_matches' | 'indexing' | 'no_documents';
+
+export type RetrievalResult = {
+  chunks: RetrievedChunk[];
+  status: RetrievalStatus;
+};
+
 const TOP_K = 5;
 const MIN_SCORE = 0.3; // Filter out very weak matches
 
@@ -26,7 +38,7 @@ export async function retrieveRelevantChunks(
   tenantId: string,
   query: string,
   options?: { topK?: number; documentIds?: string[] }
-): Promise<RetrievedChunk[]> {
+): Promise<RetrievalResult> {
   const topK = options?.topK ?? TOP_K;
 
   // ----- 1. Embed the query -----
@@ -49,11 +61,20 @@ export async function retrieveRelevantChunks(
     returnMetadata: 'indexed',
   });
 
-  if (!matches.matches || matches.matches.length === 0) return [];
+  const rawMatches = matches.matches ?? [];
+
+  // Vectorize returns the topK nearest vectors no matter how weak the similarity
+  // is, so zero raw matches never means "the question was off-topic" — it means
+  // nothing satisfied the filter. Either this tenant has no chunks at all, or the
+  // vectors were upserted but the index hasn't caught up: upsert() resolves when
+  // the mutation is *accepted*, not when it becomes queryable.
+  if (rawMatches.length === 0) {
+    return { chunks: [], status: await diagnoseEmptyIndex(env, tenantId, options?.documentIds) };
+  }
 
   // Filter weak matches
-  const relevant = matches.matches.filter(m => m.score >= MIN_SCORE);
-  if (relevant.length === 0) return [];
+  const relevant = rawMatches.filter(m => m.score >= MIN_SCORE);
+  if (relevant.length === 0) return { chunks: [], status: 'no_matches' };
 
   // ----- 3. Fetch chunk text from D1 (with tenant_id double-check) -----
   const chunkIds = relevant.map(m => m.id);
@@ -82,7 +103,7 @@ export async function retrieveRelevantChunks(
   // Build a map for ordering by Vectorize score
   const rowMap = new Map(rows.results.map(r => [r.chunk_id, r]));
 
-  return relevant
+  const chunks = relevant
     .map(match => {
       const row = rowMap.get(match.id);
       if (!row) return null;
@@ -96,6 +117,29 @@ export async function retrieveRelevantChunks(
       };
     })
     .filter((c): c is RetrievedChunk => c !== null);
+
+  return { chunks, status: chunks.length > 0 ? 'ok' : 'no_matches' };
+}
+
+/**
+ * Vectorize returned nothing for this tenant. Ask D1 whether that's because there
+ * is nothing to find, or because the vectors exist but aren't queryable yet.
+ */
+async function diagnoseEmptyIndex(
+  env: Bindings,
+  tenantId: string,
+  documentIds?: string[]
+): Promise<'indexing' | 'no_documents'> {
+  let sql = 'SELECT COUNT(*) AS n FROM chunks WHERE tenant_id = ?';
+  const binds: unknown[] = [tenantId];
+
+  if (documentIds && documentIds.length > 0) {
+    sql += ` AND document_id IN (${documentIds.map(() => '?').join(',')})`;
+    binds.push(...documentIds);
+  }
+
+  const row = await env.DB.prepare(sql).bind(...binds).first<{ n: number }>();
+  return (row?.n ?? 0) > 0 ? 'indexing' : 'no_documents';
 }
 
 /**

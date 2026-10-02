@@ -6,6 +6,22 @@ import { authMiddleware } from '../lib/auth-middleware';
 import { generateUUID } from '../lib/crypto';
 import { logAudit } from '../lib/audit';
 import { retrieveRelevantChunks, buildPrompt, cacheKeyForQuery } from '../lib/rag';
+import type { RetrievalStatus } from '../lib/rag';
+
+/**
+ * Distinct answers for the distinct ways retrieval comes back empty. Telling a
+ * user their document doesn't cover the question, when really it just isn't
+ * searchable yet, sends them off to rewrite a question that was fine.
+ */
+const EMPTY_ANSWERS: Record<RetrievalStatus, string> = {
+  ok: "I couldn't find any relevant information in your documents to answer that question.",
+  no_matches:
+    "I couldn't find any relevant information in your documents to answer that question.",
+  indexing:
+    "Your documents are still being indexed and aren't searchable yet. This usually finishes within a minute — please ask the same question again shortly.",
+  no_documents:
+    "You haven't uploaded any documents yet. Upload a PDF and I'll answer questions grounded in it.",
+};
 
 const chat = new Hono<{ Bindings: Bindings; Variables: Variables }>();
 
@@ -109,22 +125,25 @@ chat.post('/:id/ask', zValidator('json', askSchema), async (c) => {
   let answer: string;
   let citations: any[];
   let cacheHit = false;
+  let retrievalStatus: RetrievalStatus = 'ok';
 
   if (cached) {
     answer = cached.answer;
     citations = cached.citations;
     cacheHit = true;
   } else {
-    const chunks = await retrieveRelevantChunks(c.env, auth.tenantId, question, { documentIds });
+    const retrieval = await retrieveRelevantChunks(c.env, auth.tenantId, question, { documentIds });
+    const chunks = retrieval.chunks;
+    retrievalStatus = retrieval.status;
 
     if (chunks.length === 0) {
-      answer = "I couldn't find any relevant information in your documents to answer that question.";
+      answer = EMPTY_ANSWERS[retrievalStatus] ?? EMPTY_ANSWERS.no_matches;
       citations = [];
     } else {
       const { systemPrompt, userPrompt } = buildPrompt(question, chunks);
 
       const llmResponse = (await c.env.AI.run(
-        '@cf/meta/llama-3.1-8b-instruct',
+        '@cf/meta/llama-3.1-8b-instruct-fp8',
         {
           messages: [
             { role: 'system', content: systemPrompt },
@@ -196,6 +215,7 @@ chat.post('/:id/ask', zValidator('json', askSchema), async (c) => {
       questionLength: question.length,
       citationCount: citations.length,
       cacheHit,
+      retrievalStatus,
     },
     ipAddress: c.req.header('CF-Connecting-IP'),
   });
@@ -205,6 +225,10 @@ chat.post('/:id/ask', zValidator('json', askSchema), async (c) => {
     answer,
     citations,
     cacheHit,
+    // Lets the client distinguish "no answer" from "not searchable yet" and offer
+    // a retry rather than presenting an indexing lag as a content gap.
+    retrievalStatus,
+    retryable: retrievalStatus === 'indexing',
   });
 });
 

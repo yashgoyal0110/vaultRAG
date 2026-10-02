@@ -340,6 +340,63 @@ a:hover {
   color: #fca5a5;
 }
 
+.upload-progress-card {
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.upload-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.upload-progress-head .filename {
+  font-weight: 500;
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progress-track {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 0.25s ease;
+}
+
+.progress-track.indeterminate .progress-fill {
+  width: 40%;
+  position: absolute;
+  left: 0;
+  animation: progress-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes progress-slide {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.upload-progress-label {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
 .empty-state {
   background: var(--bg-card);
   border: 1px dashed var(--border);

@@ -42,7 +42,7 @@ VaultRAG is not "an app hosted on Cloudflare." It is an architecture that **only
 | Product | Role in VaultRAG | Why it matters |
 |---|---|---|
 | **Cloudflare Workers** | API backend, RAG orchestration, auth middleware | Stateless edge compute; the entire backend logic runs in <50ms cold starts |
-| **Workers AI** | BGE embeddings (`@cf/baai/bge-base-en-v1.5`) + Llama 3.1 8B inference (`@cf/meta/llama-3.1-8b-instruct`) | All AI inference happens on Cloudflare's GPU fleet — no OpenAI, no Anthropic, no third-party model calls |
+| **Workers AI** | BGE embeddings (`@cf/baai/bge-base-en-v1.5`) + Llama 3.1 8B inference (`@cf/meta/llama-3.1-8b-instruct-fp8`) | All AI inference happens on Cloudflare's GPU fleet — no OpenAI, no Anthropic, no third-party model calls |
 | **Vectorize** | 768-dimensional vector store with metadata-indexed tenant isolation | The semantic retrieval engine; queries filter on indexed `tenant_id` for hard isolation |
 | **R2** | Tenant-prefixed PDF storage (`<tenant_id>/<doc_id>.pdf`) | Zero-egress object storage — documents stay inside Cloudflare with no per-byte egress fees |
 | **D1** | Multi-tenant SQL — users, documents, chunks, chats, messages, audit log | Serverless SQLite with tenant-scoped queries on every read/write |

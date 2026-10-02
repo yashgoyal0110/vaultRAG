@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../lib/auth';
 import { api } from '../lib/api';
+import type { UploadPhase } from '../lib/api';
 import type { Document } from '../lib/types';
+
+type UploadProgress = {
+  filename: string;
+  phase: UploadPhase;
+  percent: number;
+};
 
 function formatBytes(b: number): string {
   if (b < 1024) return `${b} B`;
@@ -22,6 +29,7 @@ export function DocumentsPage() {
   const [docs, setDocs] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,13 +66,17 @@ export function DocumentsPage() {
 
     setUploading(true);
     setError(null);
+    setProgress({ filename: file.name, phase: 'uploading', percent: 0 });
     try {
-      await api.uploadDocument(token, file);
+      await api.uploadDocument(token, file, (phase, percent) => {
+        setProgress({ filename: file.name, phase, percent });
+      });
       await refresh();
     } catch (err: any) {
       setError(err.message || 'Upload failed');
     } finally {
       setUploading(false);
+      setProgress(null);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   }
@@ -111,6 +123,28 @@ export function DocumentsPage() {
       </div>
 
       {error && <div className="error-msg">{error}</div>}
+
+      {progress && (
+        <div className="upload-progress-card">
+          <div className="upload-progress-head">
+            <span className="filename">{progress.filename}</span>
+            <span className="status-pill processing">
+              {progress.phase === 'uploading' ? `Uploading ${progress.percent}%` : 'Ingesting'}
+            </span>
+          </div>
+          <div className={`progress-track ${progress.phase === 'ingesting' ? 'indeterminate' : ''}`}>
+            <div
+              className="progress-fill"
+              style={progress.phase === 'uploading' ? { width: `${progress.percent}%` } : undefined}
+            />
+          </div>
+          <div className="upload-progress-label">
+            {progress.phase === 'uploading'
+              ? 'Uploading file…'
+              : 'Extracting text, chunking and embedding — this can take a moment.'}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="empty-state">Loading documents…</div>
